@@ -126,9 +126,14 @@ async def on_message(message: discord.Message):
     if message.author == client.user:
         return
 
-    if not message.content.startswith(BOT_ACTIVATION_KEYWORD):
+    if not message.content.lower().startswith(BOT_ACTIVATION_KEYWORD.lower()):
         return
     
+    if not message.author.voice:
+        await message.channel.send('Join a voice channel')
+        return
+    
+
 
     if not message.author.voice:
         # CASE 1: If user isn't in a VC, bot generate's response and then output's in the text channel.
