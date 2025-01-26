@@ -99,16 +99,16 @@ async def on_message(message: discord.Message):
     if message.author == client.user:
         return
 
-    if not message.content.lower().startswith(BOT_ACTIVATION_KEYWORD.lower()):
-        return
-    
-    if not message.author.voice:
-        await message.channel.send('Join a voice channel')
+    if not message.content.startswith(BOT_ACTIVATION_KEYWORD):
         return
 
     if 'say' == message.content.split()[1]:
         # CASE 1: We 'parrot' the input text using TTS.
         
+        if not message.author.voice:
+            await message.channel.send('Join a voice channel')
+            return
+
         start_char = message.content.find('"')
         if start_char == -1 or message.content[-1] != '"':
             await message.channel.send("Hmm, I'm not sure what you want me to say. Try surrounding it in quotes.")
