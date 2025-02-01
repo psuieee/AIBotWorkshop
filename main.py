@@ -130,10 +130,9 @@ async def on_message(message: discord.Message):
             return
 
     elif not message.author.voice:
-        thinking_message = await message.channel.send(THINKING_TEXT)
         output_text = gptGenerate(message.content)
-        await thinking_message.delete()
         await message.channel.send(output_text)
+        return
 
     if vc:
         await message.channel.send("I'm already talking! Wait a bit first.")
