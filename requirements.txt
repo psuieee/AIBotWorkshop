@@ -2,4 +2,5 @@ discord.py
 elevenlabs
 openai
 PyNaCl
+yt_dlp
 audioop.lts # Required for Python 3.13+

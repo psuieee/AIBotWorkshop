@@ -30,24 +30,24 @@ intents.voice_states = True
 client = discord.Client(intents=intents)
 
 
-def gptGenerate(userContent: str): #Generates response using gpt's API
+def gptGenerate(userContent: str):  # Generates response using gpt's API
     messages = [
-                {"role": "system", "content": CHATGPT_SYSTEM_PROMPT},
-                {"role": "user", "content": userContent}
-            ]
+        {"role": "system", "content": CHATGPT_SYSTEM_PROMPT},
+        {"role": "user", "content": userContent}
+    ]
     response = openai.chat.completions.create(
         model="gpt-4o-mini",
         messages=messages
     )
     output_text = ''.join(
         choice.message.content for choice in response.choices)
-    
+
     return output_text
 
 
 async def text_to_speech(text: str, voice_channel: discord.VoiceChannel, invoked_channel: discord.TextChannel, thinking_message: discord.Message | None = None):
     """Performs text to speech on text, playing the output audio in voice_channel.
-    
+
     If thinking_message is None, a new message indicating the bot is thinking will be sent to invoked_channel.
 
     Args:
@@ -97,6 +97,40 @@ async def text_to_speech(text: str, voice_channel: discord.VoiceChannel, invoked
         await invoked_channel.send(msg)
 
 
+async def play_youtube(message: discord.Message):
+    """Plays the audio of a YouTube video.
+
+    Args:
+        message (discord.Message): A message whose contents are in format:
+            BOT_ACTIVATION_KEYWORD play https://www.youtube.com/watch?v=DhmqpLe2QZE
+    """
+    options = {
+        "postprocessors": [{
+            "key": "FFmpegExtractAudio",  # download audio only
+            # other acceptable types "wav" etc.
+            "preferredcodec": "mp3",
+            "preferredquality": "192"  # 192kbps audio
+        }],
+        "format": "bestaudio/best",
+        "outtmpl": "yt_song"  # downloaded file name
+    }
+
+    with yt_dlp.YoutubeDL(options) as dl:
+        video_url = message.content.split(' ', maxsplit=3)[2]
+        dl.download([video_url])
+
+    voice_channel = message.author.voice.channel
+    voice_client = await voice_channel.connect()
+
+    voice_client.play(discord.FFmpegPCMAudio("yt_song.mp3"))
+
+    # Stay in the voice channel until we stop speaking
+    while voice_client.is_playing():
+        await asyncio.sleep(1)
+    else:
+        voice_client.disconnect()
+
+
 @client.event
 async def on_ready():
     """
@@ -108,9 +142,9 @@ async def on_ready():
 @client.event
 async def on_message(message: discord.Message):
     """Handles message processing.
-    
+
     Ignores messages sent by self and those that do not begin with BOT_ACTIVATION_KEYWORD.
-    
+
     If the 2nd word of the sentence is 'say', text to speech will occur.
     Else, a response to the input will be generated before performing TTS.
 
@@ -118,94 +152,56 @@ async def on_message(message: discord.Message):
         message (discord.Message): Message object provided by discord.py
     """
 
+    if message.author == client.user:  # Stops bot from replying to itself
+        return
+
+    # No commands can be executed unless the BOT_ACTIVATION_KEYWORD is the first thing said
+    if not message.content.lower().startswith(BOT_ACTIVATION_KEYWORD):
+        return
+
+    command = message.content.split(maxsplit=2)[1].lower()
     vc = message.guild.voice_client
 
-    if message.author == client.user: #Stops bot from replying to itself
-            return
-    
-    if (message.content).lower().startswith('stop'): #Allows us to stop when bot is playing music
-            await vc.disconnect()    
-    print 
-    if not ((message.content).lower()).startswith(BOT_ACTIVATION_KEYWORD):
-            return
+    match command:
+        case 'stop':
+            if vc:
+                await vc.disconnect()
 
-    elif not message.author.voice:
-        output_text = gptGenerate(message.content)
-        await message.channel.send(output_text)
-        return
+        case 'say':
+            # Parrot the input.
+            # EXAMPLE: pudi say "Hello electrical engineers!"
+            if vc:
+                return await message.channel.send("I'm already talking! Wait a bit first.")
 
-    if vc:
-        await message.channel.send("I'm already talking! Wait a bit first.")
-        return
-    
-    else: #If bot is not currently in VC
-        
-
-        if 'play' == (message.content.split()[1]).lower(): #Plays MP3 file from YT link
             if not message.author.voice:
-                await message.channel.send('Join a voice channel')
-                return
-            
-            print("Playing audio!")
-            parts = message.content.split(' ', maxsplit=3)
-            YTvid = parts[2]
-
-            print(parts)
-            
-            options = {
-            "postprocessors":[{
-                "key": "FFmpegExtractAudio", # download audio only
-                "preferredcodec": "mp3", # other acceptable types "wav" etc.
-                "preferredquality": "192" # 192kbps audio
-            }],
-            "format": "bestaudio/best",
-            "outtmpl": "yt_song" # downloaded file name
-            }
-            with yt_dlp.YoutubeDL(options) as dl:
-                dl.download([YTvid])
-
-
-            voice_channel = message.author.voice.channel
-            voice_client = await voice_channel.connect()
-            #discord.FFmpegPCMAudio(sound)
-            
-
-            player = voice_client.play( discord.FFmpegPCMAudio("yt_song.mp3"))
-
-            while voice_client.is_playing(): #Checks if voice is playing
-                    await asyncio.sleep(1) #While it's playing it sleeps for 1 second
-            else:
-                await asyncio.sleep(1) #If it's not playing it waits 15 seconds
-                while voice_client.is_playing(): #and checks once again if the bot is not playing
-                    break #if it's playing it breaks
-                else:
-                    await voice_client.disconnect() #if not it disconnects
-
-            return
-        elif 'say' == message.content.split()[1]:
-            # CASE 2: We 'parrot' the input text using TTS.
-            
-            if not message.author.voice:
-                await message.channel.send('Join a voice channel')
-                return
+                return await message.channel.send('Join a voice channel')
 
             start_char = message.content.find('"')
             if start_char == -1 or message.content[-1] != '"':
-                await message.channel.send("Hmm, I'm not sure what you want me to say. Try surrounding it in quotes.")
-            else:
-                await text_to_speech(message.content[start_char+1:-1], message.author.voice.channel, message.channel)
-
-
-
-        else:
-            # CASE 3: We generate an output before performing TTS, treating the input text as a ChatGPT prompt.
+                return await message.channel.send("Hmm, I'm not sure what you want me to say. Try surrounding it in quotes.")
             
+            await text_to_speech(message.content[start_char+1:-1], message.author.voice.channel, message.channel)
+
+        case 'play':
+            # Play a YouTube video's audio via its link
+            # EXAMPLE: pudi play https://www.youtube.com/watch?v=fEgn87WTj68
+            if not message.author.voice:
+                await message.channel.send('Join a voice channel')
+                return
+
+            if vc:
+                return await message.channel.send("I'm already talking! Wait a bit first.")
+            return await play_youtube(message)
+
+        case _:
+            # We generate an output before performing TTS, treating the input text as a ChatGPT prompt.
+
             # This provides immediate user feedback while an API call is made to ChatGPT
             thinking_message = await message.channel.send(THINKING_TEXT)
 
             output_text = gptGenerate(message.content)
-            
-            await text_to_speech(output_text, message.author.voice.channel, message.channel, thinking_message)
+            if message.author.voice:
+                await text_to_speech(output_text, message.author.voice.channel, message.channel, thinking_message)
 
 
 client.run(discord_token)
