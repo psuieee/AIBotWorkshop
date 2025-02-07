@@ -1,7 +1,7 @@
 import discord
 import asyncio
 import openai
-
+import yt_dlp
 from datetime import date
 from elevenlabs import save, VoiceSettings
 from elevenlabs.client import ElevenLabs
@@ -9,8 +9,14 @@ from elevenlabs.client import ElevenLabs
 # The config.py file holds private Tokens. It should stay on your device only!
 from config import openAI_token, elevenLabs_token, discord_token
 
-BOT_ACTIVATION_KEYWORD = 'Pudi'
-CHATGPT_SYSTEM_PROMPT = "You are Neeli Bennapudi, president of the Pennsylvania State University. You LOVE money, and love getting your students to pay tuition to help you make even more money. When faced with problems, you like to avoid them. Keep responses brief."
+BOT_ACTIVATION_KEYWORD = 'pudi'
+CHATGPT_SYSTEM_PROMPT = '''
+
+
+You are Neeli Bennapudi, president of the Pennsylvania State University. You LOVE money, and love getting your students to pay tuition to help you make even more money. When faced with problems, you like to avoid them. Keep responses brief.
+
+
+'''
 THINKING_TEXT = "Hmm..."
 
 openai.api_key = openAI_token
@@ -22,6 +28,21 @@ intents.message_content = True
 intents.voice_states = True
 
 client = discord.Client(intents=intents)
+
+
+def gptGenerate(userContent: str): #Generates response using gpt's API
+    messages = [
+                {"role": "system", "content": CHATGPT_SYSTEM_PROMPT},
+                {"role": "user", "content": userContent}
+            ]
+    response = openai.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=messages
+    )
+    output_text = ''.join(
+        choice.message.content for choice in response.choices)
+    
+    return output_text
 
 
 async def text_to_speech(text: str, voice_channel: discord.VoiceChannel, invoked_channel: discord.TextChannel, thinking_message: discord.Message | None = None):
@@ -41,13 +62,13 @@ async def text_to_speech(text: str, voice_channel: discord.VoiceChannel, invoked
     try:
         audio = eleven_client.generate(
             text=text,
-            voice="Nathan",
-            model="eleven_flash_v2_5",
+            voice="Pudi",
+            model="eleven_multilingual_v2",
             voice_settings=VoiceSettings(
-                stability=0.42,
-                similarity_boost=0.88,
-                style=0.36,
+                stability=0.50,
+                similarity_boost=0.75,
                 use_speaker_boost=True,
+                style_exaggeration=0.37,
             ),
         )
         save(audio, BOT_ACTIVATION_KEYWORD + '.wav')
@@ -81,7 +102,7 @@ async def on_ready():
     """
     Used to add a status to the bot. You can set it to whatever you want!
     """
-    await client.change_presence(status=discord.Status.online, activity=discord.Game('4D Chess'))
+    await client.change_presence(status=discord.Status.online, activity=discord.Game('Raising Your Tuition'))
 
 
 @client.event
@@ -96,44 +117,95 @@ async def on_message(message: discord.Message):
     Args:
         message (discord.Message): Message object provided by discord.py
     """
-    if message.author == client.user:
-        return
 
-    if not message.content.startswith(BOT_ACTIVATION_KEYWORD):
-        return
+    vc = message.guild.voice_client
 
-    if 'say' == message.content.split()[1]:
-        # CASE 1: We 'parrot' the input text using TTS.
-        
-        if not message.author.voice:
-            await message.channel.send('Join a voice channel')
+    if message.author == client.user: #Stops bot from replying to itself
+            return
+    
+    if (message.content).lower().startswith('stop'): #Allows us to stop when bot is playing music
+            await vc.disconnect()    
+    print 
+    if not ((message.content).lower()).startswith(BOT_ACTIVATION_KEYWORD):
             return
 
-        start_char = message.content.find('"')
-        if start_char == -1 or message.content[-1] != '"':
-            await message.channel.send("Hmm, I'm not sure what you want me to say. Try surrounding it in quotes.")
-        else:
-            await text_to_speech(message.content[start_char+1:-1], message.author.voice.channel, message.channel)
+    elif not message.author.voice:
+        output_text = gptGenerate(message.content)
+        await message.channel.send(output_text)
+        return
 
-    else:
-        # CASE 2: We generate an output before performing TTS, treating the input text as a ChatGPT prompt.
+    if vc:
+        await message.channel.send("I'm already talking! Wait a bit first.")
+        return
+    
+    else: #If bot is not currently in VC
         
-        # This provides immediate user feedback while an API call is made to ChatGPT
-        thinking_message = await message.channel.send(THINKING_TEXT)
 
-        messages = [
-            {"role": "system", "content": CHATGPT_SYSTEM_PROMPT},
-            {"role": "user", "content": message.content}
-        ]
+        if 'play' == (message.content.split()[1]).lower(): #Plays MP3 file from YT link
+            if not message.author.voice:
+                await message.channel.send('Join a voice channel')
+                return
+            
+            print("Playing audio!")
+            parts = message.content.split(' ', maxsplit=3)
+            YTvid = parts[2]
 
-        response = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages
-        )
+            print(parts)
+            
+            options = {
+            "postprocessors":[{
+                "key": "FFmpegExtractAudio", # download audio only
+                "preferredcodec": "mp3", # other acceptable types "wav" etc.
+                "preferredquality": "192" # 192kbps audio
+            }],
+            "format": "bestaudio/best",
+            "outtmpl": "yt_song" # downloaded file name
+            }
+            with yt_dlp.YoutubeDL(options) as dl:
+                dl.download([YTvid])
 
-        output_text = ''.join(
-            choice.message.content for choice in response.choices)
-        await text_to_speech(output_text, message.author.voice.channel, message.channel, thinking_message)
+
+            voice_channel = message.author.voice.channel
+            voice_client = await voice_channel.connect()
+            #discord.FFmpegPCMAudio(sound)
+            
+
+            player = voice_client.play( discord.FFmpegPCMAudio("yt_song.mp3"))
+
+            while voice_client.is_playing(): #Checks if voice is playing
+                    await asyncio.sleep(1) #While it's playing it sleeps for 1 second
+            else:
+                await asyncio.sleep(1) #If it's not playing it waits 15 seconds
+                while voice_client.is_playing(): #and checks once again if the bot is not playing
+                    break #if it's playing it breaks
+                else:
+                    await voice_client.disconnect() #if not it disconnects
+
+            return
+        elif 'say' == message.content.split()[1]:
+            # CASE 2: We 'parrot' the input text using TTS.
+            
+            if not message.author.voice:
+                await message.channel.send('Join a voice channel')
+                return
+
+            start_char = message.content.find('"')
+            if start_char == -1 or message.content[-1] != '"':
+                await message.channel.send("Hmm, I'm not sure what you want me to say. Try surrounding it in quotes.")
+            else:
+                await text_to_speech(message.content[start_char+1:-1], message.author.voice.channel, message.channel)
+
+
+
+        else:
+            # CASE 3: We generate an output before performing TTS, treating the input text as a ChatGPT prompt.
+            
+            # This provides immediate user feedback while an API call is made to ChatGPT
+            thinking_message = await message.channel.send(THINKING_TEXT)
+
+            output_text = gptGenerate(message.content)
+            
+            await text_to_speech(output_text, message.author.voice.channel, message.channel, thinking_message)
 
 
 client.run(discord_token)
