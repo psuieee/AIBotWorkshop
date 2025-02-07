@@ -41,7 +41,7 @@ async def text_to_speech(text: str, voice_channel: discord.VoiceChannel, invoked
     try:
         audio = eleven_client.generate(
             text=text,
-            voice="Pudi",
+            voice="Nathan",
             model="eleven_flash_v2_5",
             voice_settings=VoiceSettings(
                 stability=0.42,
