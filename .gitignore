@@ -1,10 +1,10 @@
 # You can create your own venv using:
-# >>> py -m venv path/to/venv
+# >>> py -m venv .venv
 .venv
 
-# Generated voice files
+# Generated files
 *.wav
-
+*.mp3
 __pycache__
 
 # Holds bot tokens. Don't share these!
