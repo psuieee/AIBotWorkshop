@@ -45,6 +45,19 @@ def gptGenerate(userContent: str):  # Generates response using gpt's API
     return output_text
 
 
+async def send_long_message(channel: discord.TextChannel, text: str):
+    """Sends a text message to channel. If the message is oversized
+    (longer than 2000 characters), it will be split into multiple messages.
+
+    Args:
+        channel (discord.TextChannel): Channel to send message in.
+        text (str): Message text.
+    """
+    msgs = [text[i:i+1999] for i in range(0, len(text), 1999)]
+    for msg in msgs:
+        await channel.channel.send(msg)
+
+
 async def text_to_speech(text: str, voice_channel: discord.VoiceChannel, invoked_channel: discord.TextChannel, thinking_message: discord.Message | None = None):
     """Performs text to speech on text, playing the output audio in voice_channel.
 
@@ -89,12 +102,7 @@ async def text_to_speech(text: str, voice_channel: discord.VoiceChannel, invoked
     await voice_client.disconnect()
     await thinking_message.delete()
 
-    # Discord limits messages to 2000 characters, so split the output text into
-    # multiple messages if needed.
-    capped_output_messages = [text[i:i+1999]
-                              for i in range(0, len(text), 1999)]
-    for msg in capped_output_messages:
-        await invoked_channel.send(msg)
+    send_long_message(invoked_channel, text)
 
 
 async def play_youtube(message: discord.Message):
@@ -128,7 +136,7 @@ async def play_youtube(message: discord.Message):
     while voice_client.is_playing():
         await asyncio.sleep(1)
     else:
-        voice_client.disconnect()
+        await voice_client.disconnect()
 
 
 @client.event
@@ -179,7 +187,7 @@ async def on_message(message: discord.Message):
             start_char = message.content.find('"')
             if start_char == -1 or message.content[-1] != '"':
                 return await message.channel.send("Hmm, I'm not sure what you want me to say. Try surrounding it in quotes.")
-            
+
             await text_to_speech(message.content[start_char+1:-1], message.author.voice.channel, message.channel)
 
         case 'play':
@@ -202,6 +210,9 @@ async def on_message(message: discord.Message):
             output_text = gptGenerate(message.content)
             if message.author.voice:
                 await text_to_speech(output_text, message.author.voice.channel, message.channel, thinking_message)
+            else:
+                thinking_message.delete()
+                send_long_message(message.channel, output_text)
 
 
 client.run(discord_token)
