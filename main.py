@@ -55,7 +55,7 @@ async def send_long_message(channel: discord.TextChannel, text: str):
     """
     msgs = [text[i:i+1999] for i in range(0, len(text), 1999)]
     for msg in msgs:
-        await channel.channel.send(msg)
+        await channel.send(msg)
 
 
 async def text_to_speech(text: str, voice_channel: discord.VoiceChannel, invoked_channel: discord.TextChannel, thinking_message: discord.Message | None = None):
