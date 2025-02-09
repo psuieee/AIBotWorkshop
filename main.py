@@ -102,7 +102,7 @@ async def text_to_speech(text: str, voice_channel: discord.VoiceChannel, invoked
     await voice_client.disconnect()
     await thinking_message.delete()
 
-    send_long_message(invoked_channel, text)
+    await send_long_message(invoked_channel, text)
 
 
 async def play_youtube(message: discord.Message):
@@ -212,7 +212,7 @@ async def on_message(message: discord.Message):
                 await text_to_speech(output_text, message.author.voice.channel, message.channel, thinking_message)
             else:
                 thinking_message.delete()
-                send_long_message(message.channel, output_text)
+                await send_long_message(message.channel, output_text)
 
 
 client.run(discord_token)
