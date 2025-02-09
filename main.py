@@ -211,7 +211,7 @@ async def on_message(message: discord.Message):
             if message.author.voice:
                 await text_to_speech(output_text, message.author.voice.channel, message.channel, thinking_message)
             else:
-                thinking_message.delete()
+                await thinking_message.delete()
                 await send_long_message(message.channel, output_text)
 
 
