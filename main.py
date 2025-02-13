@@ -167,7 +167,11 @@ async def on_message(message: discord.Message):
     if not message.content.lower().startswith(BOT_ACTIVATION_KEYWORD):
         return
 
-    command = message.content.split(maxsplit=2)[1].lower()
+    input_tokens = message.content.split(maxsplit=2)
+    if len(input_tokens) >= 2:
+        command = input_tokens[1].lower()
+    else:
+        return await message.channel.send("How can I assist you today?")
     vc = message.guild.voice_client
 
     match command:
