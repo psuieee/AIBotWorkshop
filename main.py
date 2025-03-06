@@ -162,6 +162,17 @@ async def on_message(message: discord.Message):
 
     if message.author == client.user:  # Stops bot from replying to itself
         return
+    
+    # This makes Reilly happy :)
+    BLACKLISTED_PHRASES = [
+        "would anyone be interested in kendrick lamar and sza tickets dm if you’re interested",
+        "sza tickets",
+    ]
+    
+    if message.content.lower() in BLACKLISTED_PHRASES:
+        await message.delete()
+        await message.channel.send(f'<@{message.author.id}> sent a suspicious message.')
+        return
 
     # No commands can be executed unless the BOT_ACTIVATION_KEYWORD is the first thing said
     if not message.content.lower().startswith(BOT_ACTIVATION_KEYWORD):
