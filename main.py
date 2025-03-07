@@ -165,8 +165,9 @@ async def on_message(message: discord.Message):
     
     # This makes Reilly happy :)
     BLACKLISTED_PHRASES = [
-        "would anyone be interested in kendrick lamar and sza tickets dm if you’re interested",
-        "sza tickets",
+        "tickets",
+        "selling",
+        "sell",
     ]
     
     if message.content.lower() in BLACKLISTED_PHRASES:
