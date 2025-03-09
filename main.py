@@ -170,10 +170,11 @@ async def on_message(message: discord.Message):
         "sell",
     ]
     
-    if message.content.lower() in BLACKLISTED_PHRASES:
-        await message.delete()
-        await message.channel.send(f'<@{message.author.id}> sent a suspicious message.')
-        return
+    for x in BLACKLISTED_PHRASES:
+        if x in message.content.lower():
+            await message.delete()
+            await message.channel.send(f'<@{message.author.id}> sent a suspicious message.')
+            return
 
     # No commands can be executed unless the BOT_ACTIVATION_KEYWORD is the first thing said
     if not message.content.lower().startswith(BOT_ACTIVATION_KEYWORD):
